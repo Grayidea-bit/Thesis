@@ -45,7 +45,7 @@ def githubCallback(request):
     request.session['username'] = username
     request.session['avatar_url'] = avatar_url
     
-    frontend_url = f"http://localhost:5173/main/"
+    frontend_url = f"http://localhost:5173/profile/"
     return redirect(frontend_url)
 
 
