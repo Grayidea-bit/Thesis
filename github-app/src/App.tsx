@@ -1,13 +1,15 @@
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import GitHubLogin from './components/GitHubLogin';
 import Profile from './components/Profile';
+import Home from './pages/Home';
+import Login from './pages/Login';
 
 const App = () => {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<GitHubLogin />} />
-        <Route path="profile/" element={<Profile />} />
+        <Route path="/" element={<Login />} />
+        <Route path="home/" element={<Home />} />
+        <Route path="home/" element={<Home />} />
       </Routes>
     </Router>
   );

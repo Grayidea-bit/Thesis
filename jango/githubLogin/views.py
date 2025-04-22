@@ -45,7 +45,7 @@ def githubCallback(request):
     request.session['username'] = username
     request.session['avatar_url'] = avatar_url
     
-    frontend_url = f"http://localhost:5173/profile/"
+    frontend_url = f"http://localhost:5173/home/"
     return redirect(frontend_url)
 
 
@@ -86,4 +86,18 @@ def get_repos(request):
 
     return JsonResponse({"repositories": repo_names})
 
+@csrf_exempt
+def get_commits(request):
+    access_token = request.session.get('access_token')
+    if not access_token:
+        return JsonResponse({"error": "No access token found"}, status=400)
     
+    response = requests.get(
+        "https://api.github.com/user/repos",
+        headers={"Authorization": f"Bearer {access_token}"}
+    )
+    repos_data = response.json()
+    
+    repo_names = [repo["name"] for repo in repos_data]
+
+    return JsonResponse({"repositories": repo_names})

@@ -1,39 +1,28 @@
-// Profile.tsx (React)
-import { useEffect, useState } from "react";
+import { useUser } from "../contexts/UserContext";
 
 const Profile = () => {
-  const [userData, setUserData] = useState<{ username: string; avatar_url: string } | null>(null);
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
+    const { userData, userLoading } = useUser(); // 使用 Hook 獲取資料和加載狀態
+    // 處理加載狀態
+    if (userLoading) {
+      return <div>Loading data...</div>;
+    }
+  
+    // 處理未登入或獲取失敗的情況
+    if (!userData) {
+      // 可以導向登入頁面或顯示提示訊息
+      return <div>User not logged in or data unavailable.</div>;
+    }
 
-  useEffect(() => {
-    // 呼叫後端 API 來獲取使用者資料
-    const fetchUserData = async () => {
-      const response = await fetch("http://localhost:8000/github/getinfo/", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "X-CSRFToken": csrfToken,  // 必須將 CSRF token 傳遞到 header
-        },
-        credentials: 'include',  // 確保請求帶有 cookie
-      });
+    return (
+            <div className="flex flex-col items-center p-4 rounded shadow ">
+                <h2 className="text-white text-xl font-semibold mb-2">Welcome, {userData.username}!</h2>
+                <img
+                    src={userData.avatar_url}
+                    alt={`${userData.username}'s avatar`}
+                    className="avatar w-16 h-16 rounded-full border-2 border-gray-300"
+                />
+            </div>
+      );
 
-      const data = await response.json();
-      if (response.ok) {
-        setUserData(data); // 更新使用者資料
-        console.log(userData?.username,userData?.avatar_url);
-      }
-    };
-    fetchUserData();
-  }, []);
-
-  if (!userData) return <div>Loading...</div>;
-
-  return (
-    <div className="profile">
-      <h2>Welcome, {userData.username}!</h2>
-      <img src={userData.avatar_url} alt="avatar" className="avatar" />
-    </div>
-  );
-};
-
+}
 export default Profile;
