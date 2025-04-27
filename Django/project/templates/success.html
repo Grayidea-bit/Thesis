@@ -1,0 +1,11 @@
+<!-- project/templates/success.html -->
+<html>
+<head><title>登录成功</title></head>
+<body>
+  <h2>欢迎，{{ username }}！</h2>
+  <form method="post" action="/push/">
+    {% csrf_token %}
+    <button type="submit">推送代码到 GitHub</button>
+  </form>
+</body>
+</html>
