@@ -16,5 +16,6 @@
             "autoStartBrowser": false,
             "program": "${workspaceFolder}/jango/manage.py"
         }
-    ]
+    ],
+    "python.pythonPath": "some/invalid/path"
 }
