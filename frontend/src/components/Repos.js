@@ -224,12 +224,12 @@ function Repos() {
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>歡迎, {user?.login || '用戶'}</h1>
+        <h1>{user?.login || '用戶'}</h1>
         <button onClick={handleLogout} style={{ padding: '10px 20px' }}>
           登出
         </button>
       </div>
-      <h2>你的倉庫</h2>
+      <h2>Repo</h2>
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {repos.map((repo) => (
           <li key={repo.id} style={{ margin: '10px 0' }}>
@@ -269,7 +269,7 @@ function Repos() {
             ))}
           </ul>
           <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '5px' }}>
-            <h3>與 Gemini 對話</h3>
+            <h3>LLM</h3>
             <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '10px' }}>
               {chatHistory.map((item, index) => (
                 <div key={index} style={{ marginBottom: '10px' }}>
@@ -283,7 +283,7 @@ function Repos() {
               <textarea
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="輸入有關這個倉庫的問題..."
+                placeholder="輸入問題..."
                 style={{ width: '100%', minHeight: '60px', marginBottom: '10px', padding: '5px' }}
               />
               <button type="submit" style={{ padding: '10px 20px' }}>
