@@ -1,3 +1,5 @@
+#================================#
+# 導入模組和配置日誌
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,6 +16,8 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+#================================#
+# FastAPI 初始化和 CORS 配置
 app = FastAPI()
 
 # 允許 CORS
@@ -25,7 +29,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 載入環境變數
+#================================#
+# 環境變數載入和驗證
 load_dotenv()
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
@@ -36,7 +41,8 @@ REDIRECT_URI = "http://localhost:3000"
 if not all([GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GEMINI_API_KEY]):
     raise ValueError("缺少必要的環境變數，請檢查 .env 文件")
 
-# 配置 Gemini API
+#================================#
+# Gemini API 配置和全局變數
 genai.configure(api_key=GEMINI_API_KEY)
 
 # 儲存對話歷史和 commit 數據
@@ -44,7 +50,8 @@ conversation_history: Dict[str, List[Dict[str, str]]] = {}
 commit_number_cache: Dict[str, Dict[str, int]] = {}
 commit_data_cache: Dict[str, List[Dict]] = {}  # 新增 commits 快取
 
-# 獲取可用 Gemini 模型
+#================================#
+# Gemini 模型選擇函數
 def get_available_model():
     try:
         models = genai.list_models()
@@ -66,6 +73,7 @@ def get_available_model():
         logger.error(f"無法列出 Gemini 模型: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to list Gemini models: {str(e)}")
 
+#================================#
 # 全局異常處理
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
@@ -76,12 +84,14 @@ async def global_exception_handler(request, exc):
         headers={"Access-Control-Allow-Origin": "http://localhost:3000"},
     )
 
+#================================#
 # 根路徑
 @app.get("/")
 async def root():
     return {"message": "Welcome to the GitHub LLM API"}
 
-# 計算 commit 序號並獲取所有 commit
+#================================#
+# Commit 數據處理函數
 async def get_commit_number_and_list(owner: str, repo: str, access_token: str) -> tuple[Dict[str, int], List[Dict]]:
     cache_key = f"{owner}/{repo}"
     if cache_key not in commit_number_cache or cache_key not in commit_data_cache:
@@ -117,6 +127,7 @@ async def get_commit_number_and_list(owner: str, repo: str, access_token: str) -
         logger.info(f"快取命中: {cache_key}")
     return commit_number_cache[cache_key], commit_data_cache[cache_key]
 
+#================================#
 # GitHub OAuth 登入
 @app.get("/auth/github/login")
 async def github_login():
@@ -128,6 +139,7 @@ async def github_login():
     github_auth_url = f"https://github.com/login/oauth/authorize?{urllib.parse.urlencode(params)}"
     return RedirectResponse(github_auth_url)
 
+#================================#
 # GitHub OAuth 回呼
 @app.get("/auth/github/callback")
 async def github_callback(code: str = Query(...)):
@@ -172,6 +184,7 @@ async def github_callback(code: str = Query(...)):
             logger.error(f"HTTP 錯誤: {str(e)}")
             raise HTTPException(status_code=e.response.status_code, detail=str(e))
 
+#================================#
 # 獲取倉庫列表
 @app.get("/repos")
 async def get_repos(access_token: str = Query(...)):
@@ -192,6 +205,7 @@ async def get_repos(access_token: str = Query(...)):
             logger.error(f"HTTP 錯誤: {str(e)}")
             raise HTTPException(status_code=e.response.status_code, detail=str(e))
 
+#================================#
 # 獲取指定倉庫的 commits
 @app.get("/repos/{owner}/{repo}/commits")
 async def get_commits(owner: str, repo: str, access_token: str = Query(...)):
@@ -210,6 +224,7 @@ async def get_commits(owner: str, repo: str, access_token: str = Query(...)):
             logger.error(f"HTTP 錯誤: {str(e)}")
             raise HTTPException(status_code=e.response.status_code, detail=str(e))
 
+#================================#
 # 獲取倉庫初始功能概覽
 @app.get("/repos/{owner}/{repo}/overview")
 async def get_repo_overview(owner: str, repo: str, access_token: str = Query(...)):
@@ -302,6 +317,7 @@ async def get_repo_overview(owner: str, repo: str, access_token: str = Query(...
             logger.error(f"意外錯誤: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
+#================================#
 # 處理使用者對話
 @app.post("/repos/{owner}/{repo}/chat")
 async def chat_with_repo(owner: str, repo: str, access_token: str = Query(...), question: str = Query(...)):
@@ -384,7 +400,8 @@ async def chat_with_repo(owner: str, repo: str, access_token: str = Query(...), 
             logger.error(f"錯誤: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Failed to process chat: {str(e)}")
 
-# 獲取從第一次到指定 commit 的所有 diff 並進行分析
+#================================#
+# 分析指定 commit 的 diff
 @app.post("/repos/{owner}/{repo}/commits/{sha}/analyze")
 async def analyze_commit_diff(owner: str, repo: str, sha: str, access_token: str = Query(...)):
     logger.info(f"收到分析請求: owner={owner}, repo={repo}, sha={sha}")
@@ -489,6 +506,7 @@ Diff 內容：
             logger.error(f"意外錯誤: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
 
+#================================#
 # 啟動伺服器
 if __name__ == "__main__":
     import uvicorn
