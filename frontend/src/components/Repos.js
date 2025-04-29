@@ -4,27 +4,37 @@ import { useNavigate } from 'react-router-dom';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { solarizedlight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+// 配置 API 基礎 URL（建議在 .env 文件中設置，例如 process.env.REACT_APP_API_URL）
+const API_BASE_URL = 'http://localhost:8000';
+
+/**
+ * Repos 組件：顯示用戶的 GitHub 倉庫、Commits 和對話功能
+ * @returns {JSX.Element} 倉庫列表和交互界面
+ */
 function Repos() {
   const [repos, setRepos] = useState([]);
   const [commits, setCommits] = useState([]);
   const [selectedRepo, setSelectedRepo] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [selectedCommits, setSelectedCommits] = useState([]); // 跟踪選擇的 commits
+  const [loading, setLoading] = useState({ repos: true, commits: false, chat: false }); // 細化加載狀態
   const [error, setError] = useState(null);
   const [diff, setDiff] = useState(null);
   const [analysis, setAnalysis] = useState(null);
   const [overview, setOverview] = useState(null);
   const [chatInput, setChatInput] = useState('');
-  const [chatHistory, setChatHistory] = useState([]);
+  const [chatHistory, setChatHistory] = useState([]); // 格式：[{role: "user", parts: "..."}, {role: "model", parts: "..."}]
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user') || '{}');
 
+  /**
+   * 初始化：檢查用戶登錄狀態並獲取倉庫列表
+   */
   useEffect(() => {
     const accessToken = localStorage.getItem('access_token');
-    console.log('檢查 localStorage:', { accessToken, user });
     if (!accessToken || !user || !user.login) {
       console.error('無效的 access_token 或 user:', { accessToken, user });
       setError('未找到 Access Token 或用戶資訊，請重新登入');
-      setLoading(false);
+      setLoading((prev) => ({ ...prev, repos: false }));
       navigate('/', { replace: true });
       return;
     }
@@ -32,12 +42,12 @@ function Repos() {
     const fetchRepos = async () => {
       try {
         console.log('使用 token 獲取倉庫:', accessToken);
-        const response = await axios.get('http://localhost:8000/repos', {
+        const response = await axios.get(`${API_BASE_URL}/repos`, {
           params: { access_token: accessToken },
         });
         console.log('倉庫資料:', response.data);
         setRepos(response.data);
-        setLoading(false);
+        setLoading((prev) => ({ ...prev, repos: false }));
       } catch (error) {
         console.error('無法獲取倉庫:', {
           status: error.response?.status,
@@ -45,13 +55,22 @@ function Repos() {
           message: error.message,
         });
         setError(`無法載入倉庫：${error.response?.data?.detail || error.message}`);
-        setLoading(false);
+        setLoading((prev) => ({ ...prev, repos: false }));
+        if (error.response?.status === 401) {
+          localStorage.clear();
+          navigate('/', { replace: true });
+        }
       }
     };
 
     fetchRepos();
   }, [navigate]);
 
+  /**
+   * 獲取指定倉庫的 commits 和概覽
+   * @param {string} owner - 倉庫擁有者的登錄名
+   * @param {string} repo - 倉庫名稱
+   */
   const fetchCommits = async (owner, repo) => {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
@@ -62,22 +81,21 @@ function Repos() {
     }
 
     try {
-      setLoading(true);
+      setLoading((prev) => ({ ...prev, commits: true }));
       console.log('獲取 commits:', owner, repo);
-      // 獲取 commits
-      const commitsResponse = await axios.get(`http://localhost:8000/repos/${owner}/${repo}/commits`, {
+      const commitsResponse = await axios.get(`${API_BASE_URL}/repos/${owner}/${repo}/commits`, {
         params: { access_token: accessToken },
       });
       console.log('Commits 資料:', commitsResponse.data);
       setCommits(commitsResponse.data);
       setSelectedRepo({ owner, name: repo });
+      setSelectedCommits([]); // 重置選擇的 commits
       setError(null);
       setDiff(null);
       setAnalysis(null);
 
-      // 獨立獲取 overview
       try {
-        const overviewResponse = await axios.get(`http://localhost:8000/repos/${owner}/${repo}/overview`, {
+        const overviewResponse = await axios.get(`${API_BASE_URL}/repos/${owner}/${repo}/overview`, {
           params: { access_token: accessToken },
         });
         setOverview(overviewResponse.data.overview);
@@ -88,7 +106,7 @@ function Repos() {
           message: overviewError.message,
         });
         setError(`無法載入概覽：${overviewError.response?.data?.detail || overviewError.message}`);
-        setOverview(null); // 允許 commits 顯示，即使概覽失敗
+        setOverview(null);
       }
 
       setChatHistory([]);
@@ -100,10 +118,16 @@ function Repos() {
       });
       setError(`無法載入 Commits：${error.response?.data?.detail || error.message}`);
     } finally {
-      setLoading(false);
+      setLoading((prev) => ({ ...prev, commits: false }));
     }
   };
 
+  /**
+   * 獲取指定 commit 的 diff 和分析
+   * @param {string} owner - 倉庫擁有者的登錄名
+   * @param {string} repo - 倉庫名稱
+   * @param {string} sha - Commit 的 SHA
+   */
   const fetchDiffAndAnalyze = async (owner, repo, sha) => {
     const accessToken = localStorage.getItem('access_token');
     if (!accessToken) {
@@ -114,10 +138,10 @@ function Repos() {
     }
 
     try {
-      setLoading(true);
+      setLoading((prev) => ({ ...prev, commits: true }));
       console.log('獲取 diff 和分析:', owner, repo, sha);
       const response = await axios.post(
-        `http://localhost:8000/repos/${owner}/${repo}/commits/${sha}/analyze`,
+        `${API_BASE_URL}/repos/${owner}/${repo}/commits/${sha}/analyze`,
         {},
         { params: { access_token: accessToken } }
       );
@@ -137,11 +161,29 @@ function Repos() {
         ? `伺服器錯誤：${error.response.data.detail}`
         : `無法載入 Diff 或分析：${error.message}`;
       setError(errorMessage);
+      if (error.response?.status === 401) {
+        localStorage.clear();
+        navigate('/', { replace: true });
+      }
     } finally {
-      setLoading(false);
+      setLoading((prev) => ({ ...prev, commits: false }));
     }
   };
 
+  /**
+   * 處理 commit 選擇
+   * @param {string} sha - Commit 的 SHA
+   */
+  const handleCommitSelection = (sha) => {
+    setSelectedCommits((prev) =>
+      prev.includes(sha) ? prev.filter((id) => id !== sha) : [...prev, sha]
+    );
+  };
+
+  /**
+   * 提交對話問題
+   * @param {Event} e - 表單提交事件
+   */
   const handleChatSubmit = async (e) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -150,14 +192,22 @@ function Repos() {
       setError('請選擇一個倉庫並確保已登入');
       return;
     }
+    if (!selectedCommits.length) {
+      setError('請至少選擇一個 Commit 進行對話');
+      return;
+    }
 
     try {
-      setLoading(true);
-      console.log('提交對話問題:', chatInput);
+      setLoading((prev) => ({ ...prev, chat: true }));
+      console.log('提交對話問題:', chatInput, '選擇的 commits:', selectedCommits);
       const response = await axios.post(
-        `http://localhost:8000/repos/${selectedRepo.owner}/${selectedRepo.name}/chat`,
-        {},
-        { params: { access_token: accessToken, question: chatInput } }
+        `${API_BASE_URL}/repos/${selectedRepo.owner}/${selectedRepo.name}/chat`,
+        {
+          commits: selectedCommits,
+          question: chatInput,
+          history: chatHistory,
+        },
+        { params: { access_token: accessToken } }
       );
       console.log('對話回應:', response.data);
       setChatHistory(response.data.history);
@@ -169,12 +219,24 @@ function Repos() {
         data: error.response?.data,
         message: error.message,
       });
-      setError(`無法提交問題：${error.response?.data?.detail || error.message}`);
+      const errorMessage = error.response?.data?.detail
+        ? `無法提交問題：${error.response.data.detail}`
+        : `無法提交問題：${error.message}`;
+      setError(errorMessage);
+      if (error.response?.status === 401) {
+        localStorage.clear();
+        navigate('/', { replace: true });
+      }
     } finally {
-      setLoading(false);
+      setLoading((prev) => ({ ...prev, chat: false }));
     }
   };
 
+  /**
+   * 解析 diff 按文件分組
+   * @param {string} diff - 原始 diff 字符串
+   * @returns {Array} 按文件分組的 diff 數組
+   */
   const parseDiffByFile = (diff) => {
     const files = [];
     let currentFile = null;
@@ -191,22 +253,35 @@ function Repos() {
     return files;
   };
 
+  /**
+   * 重試當前操作
+   */
   const handleRetry = () => {
     setError(null);
-    setLoading(true);
     setDiff(null);
     setAnalysis(null);
     setOverview(null);
     setChatHistory([]);
-    window.location.reload();
+    setSelectedCommits([]);
+    if (selectedRepo) {
+      fetchCommits(selectedRepo.owner, selectedRepo.name);
+    } else {
+      window.location.reload();
+    }
   };
 
+  /**
+   * 登出並清除本地存儲
+   */
   const handleLogout = () => {
     localStorage.clear();
     navigate('/', { replace: true });
   };
 
-  if (loading) return <div style={{ padding: '20px', textAlign: 'center' }}>載入中...</div>;
+  // 渲染加載狀態
+  if (loading.repos) return <div style={{ padding: '20px', textAlign: 'center' }}>載入倉庫中...</div>;
+
+  // 渲染錯誤狀態
   if (error) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
@@ -221,6 +296,7 @@ function Repos() {
     );
   }
 
+  // 主渲染
   return (
     <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -229,11 +305,16 @@ function Repos() {
           登出
         </button>
       </div>
-      <h2>Repo</h2>
+      <h2>倉庫列表</h2>
       <ul style={{ listStyle: 'none', padding: 0 }}>
         {repos.map((repo) => (
           <li key={repo.id} style={{ margin: '10px 0' }}>
-            <a href={repo.html_url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', color: '#0366d6' }}>
+            <a
+              href={repo.html_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'none', color: '#0366d6' }}
+            >
               {repo.name}
             </a>
             <button
@@ -254,30 +335,44 @@ function Repos() {
             </div>
           )}
           <h3>{selectedRepo.owner}/{selectedRepo.name} 的 Commits</h3>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {commits.map((commit) => (
-              <li key={commit.sha} style={{ margin: '10px 0' }}>
-                <strong>{commit.commit.message || '無提交訊息'}</strong> - 由 {commit.commit.author.name} 於{' '}
-                {new Date(commit.commit.author.date).toLocaleString()} 提交
-                <button
-                  onClick={() => fetchDiffAndAnalyze(selectedRepo.owner, selectedRepo.name, commit.sha)}
-                  style={{ marginLeft: '10px', padding: '5px 10px' }}
-                >
-                  查看變更與分析
-                </button>
-              </li>
-            ))}
-          </ul>
-          <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '5px' }}>
-            <h3>LLM</h3>
-            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '10px' }}>
-              {chatHistory.map((item, index) => (
-                <div key={index} style={{ marginBottom: '10px' }}>
-                  <strong>你:</strong> {item.question}
-                  <br />
-                  <strong>Gemini:</strong> {item.answer}
-                </div>
+          {loading.commits ? (
+            <div style={{ textAlign: 'center' }}>載入 Commits 中...</div>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+              {commits.map((commit) => (
+                <li key={commit.sha} style={{ margin: '10px 0', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedCommits.includes(commit.sha)}
+                    onChange={() => handleCommitSelection(commit.sha)}
+                    style={{ marginRight: '10px' }}
+                  />
+                  <div>
+                    <strong>{commit.message || '無提交訊息'}</strong> - 由 {commit.commit?.committer?.name || '未知'} 於{' '}
+                    {new Date(commit.date).toLocaleString()} 提交
+                    <button
+                      onClick={() => fetchDiffAndAnalyze(selectedRepo.owner, selectedRepo.name, commit.sha)}
+                      style={{ marginLeft: '10px', padding: '5px 10px' }}
+                    >
+                      查看變更與分析
+                    </button>
+                  </div>
+                </li>
               ))}
+            </ul>
+          )}
+          <div style={{ marginTop: '20px', background: '#f9f9f9', padding: '15px', borderRadius: '5px' }}>
+            <h3>與程式碼對話</h3>
+            <div style={{ maxHeight: '200px', overflowY: 'auto', marginBottom: '10px' }}>
+              {chatHistory.length === 0 ? (
+                <div>尚未有對話記錄</div>
+              ) : (
+                chatHistory.map((item, index) => (
+                  <div key={index} style={{ marginBottom: '10px' }}>
+                    <strong>{item.role === 'user' ? '你' : 'Gemini'}:</strong> {item.parts}
+                  </div>
+                ))
+              )}
             </div>
             <form onSubmit={handleChatSubmit}>
               <textarea
@@ -285,9 +380,10 @@ function Repos() {
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="輸入問題..."
                 style={{ width: '100%', minHeight: '60px', marginBottom: '10px', padding: '5px' }}
+                disabled={loading.chat}
               />
-              <button type="submit" style={{ padding: '10px 20px' }}>
-                提交問題
+              <button type="submit" style={{ padding: '10px 20px' }} disabled={loading.chat}>
+                {loading.chat ? '提交中...' : '提交問題'}
               </button>
             </form>
           </div>
