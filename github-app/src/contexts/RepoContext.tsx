@@ -1,11 +1,16 @@
 import { useEffect, useState, ReactNode, useContext} from "react";
 import React from "react";
 
+type repoType = {
+    "name" : string,
+    "owner" : string
+};
+
 interface RepoContextType {
-    repositories: string[] | null;
+    repositories: repoType[] | null;
     reposLoading: boolean;        
-    selectedRepo: string | null;
-    selectRepo: (arg0: string) => void;
+    selectedRepo: repoType | null;
+    selectRepo: (arg0: repoType) => void;
 }
 
 const ReposContext = React.createContext<RepoContextType>({
@@ -16,12 +21,12 @@ const ReposContext = React.createContext<RepoContextType>({
 });
 
 const ReposProvider = ({children}:{children:ReactNode}) => {
-    const [repositories, setRepositories] = useState<string[]|null>(null);
-    const [selectedRepo, setSelectedRepo] = useState<string|null>(null);
+    const [repositories, setRepositories] = useState<repoType[]|null>(null);
+    const [selectedRepo, setSelectedRepo] = useState<repoType|null>(null);
     const [reposLoading, setReposLoading] = useState(true);
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
-    const selectRepo = (e:string) => {
+    const selectRepo = (e:repoType) => {
         setSelectedRepo(e);
     };
 
@@ -40,8 +45,11 @@ const ReposProvider = ({children}:{children:ReactNode}) => {
 
             if (response.ok) {
                 const responseData = await response.json();
-                setRepositories(responseData.repositories);
-                console.log(repositories);
+                setRepositories(responseData.repositories.map((repo: any) => ({
+                    name: repo.name,
+                    owner: repo.owner
+                })));
+                //console.log(repositories);
             } 
             else {
                 // 可以加入錯誤處理邏輯，例如清除 userData 或顯示錯誤訊息

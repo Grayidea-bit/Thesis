@@ -2,21 +2,10 @@ import React from 'react'; // Import React if not already present
 import { useRepos } from "../contexts/RepoContext";
 // Ensure the path to your CSS module is correct
 import styles from './styles/RepoList.module.css';
-import clsx from 'clsx';
 
 const RepoListLLM: React.FC = () => { // Add type annotation
     const { repositories, reposLoading, selectedRepo, selectRepo } = useRepos();
 
-    const handleSelectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-        selectRepo(event.target.value);
-    };
-
-    const handleGoClick = () => {
-        if (selectedRepo) {
-            console.log(`Navigating or performing action with: ${selectedRepo}`);
-            // Add your action here
-        }
-    };
 
     // Handle Loading State
     if (reposLoading) {
@@ -39,16 +28,22 @@ const RepoListLLM: React.FC = () => { // Add type annotation
             {/* Apply select style */}
             <select
                 id="repo-select"
-                value={selectedRepo || ''}
-                onChange={handleSelectChange}
+                value={selectedRepo?.name || ""}
+                onChange={(event) => {
+                    const selectedName = event.target.value;
+                    const selectedRep = repositories.find(repo => repo.name === selectedName);
+                    if (selectedRep) {
+                        selectRepo(selectedRep);
+                    }
+                }}
                 className={styles.select} // Use the select class from the module
             >
                 <option value="" disabled>
                     -- Select a repository --
                 </option>
-                {repositories.map((repoName) => (
-                    <option key={repoName} value={repoName}>
-                        {repoName}
+                {repositories.map((repo) => (
+                    <option key={repo.name} value={repo.name}>
+                        {repo.name}
                     </option>
                 ))}
             </select>
@@ -61,7 +56,7 @@ const RepoListLLM: React.FC = () => { // Add type annotation
             )} */}
 
             {/* Button using CSS Modules */}
-            <button
+            {/* <button
                 onClick={handleGoClick}
                 disabled={!selectedRepo}
                 className={clsx(
@@ -72,8 +67,8 @@ const RepoListLLM: React.FC = () => { // Add type annotation
                     }
                 )}
             >
-                Go
-            </button>
+                Get Commits!
+            </button> */}
         </div>
     );
 }

@@ -82,22 +82,58 @@ def get_repos(request):
     )
     repos_data = response.json()
     
-    repo_names = [repo["name"] for repo in repos_data]
+    #repo_names = [repo["name"] for repo in repos_data]
 
-    return JsonResponse({"repositories": repo_names})
+    #return JsonResponse(repos_data);
+    #return JsonResponse({"repositories": repo_names})
+    repos_info = [
+            {
+                "name": repo.get("name"),
+                "owner": repo.get("owner", {}).get("login") # Safely access nested owner login
+            }
+            for repo in repos_data if repo.get("name") and repo.get("owner", {}).get("login") # Ensure data exists
+        ]
+
+        # Return the list of repo info
+    return JsonResponse({"repositories": repos_info})
 
 @csrf_exempt
-def get_commits(request):
+def get_commits(request, owner, repo):
     access_token = request.session.get('access_token')
     if not access_token:
-        return JsonResponse({"error": "No access token found"}, status=400)
-    
-    response = requests.get(
-        "https://api.github.com/user/repos",
-        headers={"Authorization": f"Bearer {access_token}"}
-    )
-    repos_data = response.json()
-    
-    repo_names = [repo["name"] for repo in repos_data]
+        return JsonResponse({"error": "Missing access token"}, status=400)
 
-    return JsonResponse({"repositories": repo_names})
+    response = requests.get(
+        f"https://api.github.com/repos/{owner}/{repo}/commits",
+        headers={"Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.github.v3+json"}
+    )
+    commits_data = response.json();
+    commit_info = [
+        {
+            "name" : commit.get('commit').get('message'),
+            "sha" : commit.get('sha')
+        }
+        for commit in commits_data if commit.get('sha') and commit.get('commit').get('message')
+    ]
+    #commit_shas = [commit.get('sha') for commit in commits_data if commit.get('sha')]
+
+    return JsonResponse({"commits": commit_info})
+
+@csrf_exempt
+def get_commit_diff(request, owner, repo, sha):
+    access_token = request.session.get('access_token')
+    resp = requests.get(
+        f"https://api.github.com/repos/{owner}/{repo}/commits/{sha}",
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/vnd.github.v3.diff"
+        }
+    )
+    if resp.status_code != 200:
+        return JsonResponse({"error": f"Failed to fetch commit diff: {resp.text}"}, status=resp.status_code)
+
+    if len(resp.text) > 100000:
+        return JsonResponse({"error": "Diff too large, please select a smaller commit"}, status=400)
+
+    return JsonResponse({"sha": sha, "diff": resp.text})
