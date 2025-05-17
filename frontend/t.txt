@@ -1,0 +1,6 @@
+cd C:\Users\5210a\Desktop\graduationPJ\backend 
+.\venv\Scripts\activate
+uvicorn main:app --reload
+
+cd C:\Users\5210a\Desktop\graduationPJ\frontend
+>> npm start      
