@@ -22,9 +22,9 @@ const RepoListLLM: React.FC = () => { // Add type annotation
         // Apply container style
         <div className={styles.container}>
             {/* Apply label style */}
-            <label htmlFor="repo-select" className={styles.label}>
+            <h2  className={styles.label}>
                 Select Repository:
-            </label>
+            </h2>
             {/* Apply select style */}
             <select
                 id="repo-select"

@@ -1,4 +1,5 @@
 import { useEffect, useState, ReactNode, useContext} from "react";
+import { useReply } from "./ReplyContext";
 import React from "react";
 
 type repoType = {
@@ -24,10 +25,12 @@ const ReposProvider = ({children}:{children:ReactNode}) => {
     const [repositories, setRepositories] = useState<repoType[]|null>(null);
     const [selectedRepo, setSelectedRepo] = useState<repoType|null>(null);
     const [reposLoading, setReposLoading] = useState(true);
+    const { setRepo } = useReply();
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
 
     const selectRepo = (e:repoType) => {
         setSelectedRepo(e);
+        if(e!=selectedRepo) setRepo(e);
     };
 
     useEffect(() => {

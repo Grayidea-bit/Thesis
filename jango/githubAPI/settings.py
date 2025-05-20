@@ -33,6 +33,12 @@ INTERNAL_IPS = [
     # ...
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://localhost:3000',
+    'http://localhost:5173',
+]
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",  # 允許來自前端的請求
 ]
@@ -142,3 +148,15 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+import environ
+env = environ.Env()
+environ.Env.read_env()
+GITHUB_CLIENT_ID = env('GITHUB_CLIENT_ID')
+GITHUB_CLIENT_SECRET = env('GITHUB_CLIENT_SECRET')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+REDIRECT_URI = "http://localhost:3000/repos"

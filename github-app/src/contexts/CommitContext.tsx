@@ -8,8 +8,8 @@ type commitType = {
 }
 
 type commitDiff = {
-    "sha" : string,
-    "diff" : string
+    "old" : string,
+    "new" : string
 }
 
 interface CommitsContextType {
@@ -18,7 +18,7 @@ interface CommitsContextType {
     selectedCommits: commitType | null;
     diff: commitDiff | null;
     selectCommits: (arg0: commitType) => void;
-    getDiff: () => void;
+    setDiff: (args0: string, args1: string) => void;
 }
 
 const CommitsContext = React.createContext<CommitsContextType>({
@@ -27,20 +27,26 @@ const CommitsContext = React.createContext<CommitsContextType>({
     selectedCommits: null,
     diff: null,
     selectCommits: () => {},
-    getDiff: () => {}
+    setDiff: () => {}
 });
 
 const CommitsProvider = ({children}:{children:ReactNode}) => {
     const [commits, setCommits] = useState<commitType[]|null>(null);
     const [selectedCommits, setSelectedCommits] = useState<commitType|null>(null);
     const [commitsLoading, setCommitsLoading] = useState(true);
-    const [diff, setDiff] = useState<commitDiff|null>(null)
+    const [diff, setDifff] = useState<commitDiff|null>(null)
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
     const { selectedRepo } = useRepos();
 
     const selectCommits = (e:commitType) => {
         setSelectedCommits(e);
     };
+    const setDiff = (oldCode:string, newCode:string) => {
+        setDifff({
+            old:oldCode,
+            new:newCode
+        })
+    }
 
     useEffect(() => {
         const fetchCommitsData = async () => {
@@ -76,35 +82,9 @@ const CommitsProvider = ({children}:{children:ReactNode}) => {
         if(selectedRepo) fetchCommitsData();
     }, [selectedRepo]);
 
-    const getDiff = async () => {
-        if(selectedCommits){
-            console.log("fetching");
-            try {
-                const response = await fetch(`http://localhost:8000/github/${selectedRepo?.name}/${selectedRepo?.owner}/${selectedCommits?.sha}/compare/`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": csrfToken,
-                },
-                credentials: 'include',
-                });
-                
-                if (response.ok) {
-                    const responseData = await response.json();
-                    setDiff(responseData);
-                } 
-                else {
-                    console.error("Failed to fetch user data:", response.statusText);
-                    setDiff(null); // 或者根據需求處理
-                }
-            } catch (error) {
-            }
-        }else console.log("no selected Commit");
-
-    }
     
     return(
-        <CommitsContext.Provider value={{ commits, commitsLoading, selectedCommits, selectCommits, diff, getDiff}}>{children}</CommitsContext.Provider>
+        <CommitsContext.Provider value={{ commits, commitsLoading, selectedCommits, selectCommits, diff, setDiff}}>{children}</CommitsContext.Provider>
     )
 }
 export default CommitsProvider
