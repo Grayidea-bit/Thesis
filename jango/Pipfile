@@ -9,6 +9,11 @@ django-debug-toolbar = "*"
 djangorestframework = "*"
 requests = "*"
 django-cors-headers = "*"
+google-generativeai = "*"
+tenacity = "*"
+httpx = "*"
+dotenv = "*"
+django-environ = "*"
 
 [dev-packages]
 
