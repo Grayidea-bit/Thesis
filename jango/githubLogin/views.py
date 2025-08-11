@@ -17,6 +17,7 @@ import uuid
 import os
 import httpx
 from django.http import HttpResponse
+from .getAPI_Key import key_manager
 
 
 
@@ -31,17 +32,16 @@ commit_number_cache: Dict[str, Dict[str, int]] = {}
 commit_data_cache: Dict[str, List[Dict]] = {}
 
 # 載入環境變數
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 REDIRECT_URI = "http://localhost:8000"
 
 # 驗證環境變數
-if not all([GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GEMINI_API_KEY]):
-    raise ValueError("缺少必要的環境變數 (GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET, GEMINI_API_KEY)")
+if not all([GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET]):
+    raise ValueError("缺少必要的環境變數 (GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET)")
 
-genai.configure(api_key=GEMINI_API_KEY)
-logger.info(f"GEMINI_API_KEY loaded: {GEMINI_API_KEY[:5]}...")
+
 
 # 常數定義
 MAX_FILES_FOR_PREVIOUS_CONTENT = 7
@@ -49,7 +49,6 @@ MAX_CHARS_PER_PREV_FILE = 4000
 MAX_TOTAL_CHARS_PREV_FILES = 25000
 MAX_CHARS_CURRENT_DIFF = 35000
 MAX_CHARS_README = 10000
-
 
 CLIENT_ID = "Ov23li56CKrX18dJODju"
 CLIENT_SECRET = "5a134c65c7348ff8bbdd1735ce5cc29aa40ef281"
@@ -154,7 +153,7 @@ def get_commits(request, owner, repo):
         headers={"Authorization": f"Bearer {access_token}",
             "Accept": "application/vnd.github.v3+json"}
     )
-    commits_data = response.json();
+    commits_data = response.json()
     commit_info = [
         {
             "name" : commit.get('commit').get('message'),
@@ -274,7 +273,7 @@ def get_available_model() -> str:
         if not usable_model_names:
             logger.error("未找到任何支援 'generateContent' 的 Gemini 模型。")
             return JsonResponse({"detail": "No Gemini models found that support 'generateContent'."}, status=500)
-        preferred_models_ordered = ['gemini-1.5-flash']
+        preferred_models_ordered = ['gemini-2.5-pro']
         for preferred_name in preferred_models_ordered:
             if preferred_name in usable_model_names:
                 logger.info(f"選擇優先模型: {preferred_name}")
@@ -471,10 +470,12 @@ async def get_repo_overview_async(request, owner: str, repo: str, access_token: 
                 if e.response.status_code != 404:
                     logger.warning(f"獲取 README 時發生 HTTP 錯誤 (非 404): {str(e)}")
 
+            genai.configure(api_key=key_manager.get_next_key())
+
             selected_model_name = get_available_model()
             if isinstance(selected_model_name, JsonResponse):
                 return selected_model_name
-
+            
             model_instance = genai.GenerativeModel(selected_model_name)
             prompt = f"""
 你是一位資深的程式碼分析專家。請根據以下 GitHub 倉庫的「第一次 commit 的 diff」(序號: {first_commit_number}, SHA: {first_commit_sha}) 和 README（如果有的話），提供一個簡潔（約 100-200 字）、對非技術人員友好的程式碼功能大綱。
@@ -485,7 +486,7 @@ async def get_repo_overview_async(request, owner: str, repo: str, access_token: 
 ```diff
 {diff_data}
 ```
-- README 內容 (若可用):ㄋ
+- README 內容 (若可用):
 ```
 {readme_content if readme_content else "未提供 README。"}
 ```
@@ -696,6 +697,9 @@ async def chat_with_repo_async(request, owner: str, repo: str, access_token: str
                 if isinstance(selected_model_name, JsonResponse):
                     return selected_model_name
                 logger.info(f"為對話選擇的模型: {selected_model_name}")
+                
+                genai.configure(api_key=key_manager.get_next_key())
+                
                 model_instance = genai.GenerativeModel(selected_model_name)
 
                 prompt_context_parts = [f"以下是關於「{commit_context_description}」的程式碼變更摘要:\n"]
@@ -859,6 +863,9 @@ async def analyze_commit_diff_async(request, owner: str, repo: str, sha: str, ac
             if isinstance(selected_model_name, JsonResponse):
                 return selected_model_name
             logger.info(f"為 commit 分析選擇的模型: {selected_model_name}")
+            
+            genai.configure(api_key=key_manager.get_next_key())
+            
             model_instance = genai.GenerativeModel(selected_model_name)
             prompt = f"""
 作為一位經驗豐富的程式碼審查專家，請分析以下 GitHub commit 變更。
